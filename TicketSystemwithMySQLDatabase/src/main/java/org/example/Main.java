@@ -23,7 +23,7 @@ public class Main {
         JDABuilder jda = JDABuilder.createDefault(BotSecrets.TOKEN)
                 .setStatus(OnlineStatus.ONLINE)
                 .setChunkingFilter(ChunkingFilter.ALL)
-                .setActivity(Activity.playing("mit coolen Leuten."))
+                .setActivity(Activity.playing("mit Conbert11 Dev."))
                 .setMemberCachePolicy(MemberCachePolicy.ALL)
                 .enableIntents(GatewayIntent.GUILD_MEMBERS, GatewayIntent.GUILD_PRESENCES, GatewayIntent.MESSAGE_CONTENT)
                 .enableCache(CacheFlag.ONLINE_STATUS)
