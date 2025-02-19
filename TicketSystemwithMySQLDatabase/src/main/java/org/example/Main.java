@@ -28,7 +28,8 @@ public class Main {
                 .enableIntents(GatewayIntent.GUILD_MEMBERS, GatewayIntent.GUILD_PRESENCES, GatewayIntent.MESSAGE_CONTENT)
                 .enableCache(CacheFlag.ONLINE_STATUS)
                 .addEventListeners(
-                        new TicketSystem()
+                        new TicketSystem(),
+                        new register()
                 );
 
 
