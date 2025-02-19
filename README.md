@@ -1,5 +1,6 @@
 ## 🚀 TicketSystemJDA
 Ein leistungsstarkes, modernes Ticket-System für JDA.
+- einfach den ordner namen ignorieren. ist nicht mit datenbank usw. ~ Lg Conbert11
 
 ## ✨ Features
 - 🖥️ Intuitives Ticket-Management – Einfaches Erstellen, Verwalten und Schließen von Tickets.
