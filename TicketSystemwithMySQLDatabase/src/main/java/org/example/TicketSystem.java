@@ -2,6 +2,7 @@ package org.example;
 
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.Permission;
+import net.dv8tion.jda.api.entities.channel.concrete.Category;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
@@ -12,128 +13,123 @@ import net.dv8tion.jda.api.interactions.components.Modal;
 import net.dv8tion.jda.api.interactions.components.buttons.Button;
 import net.dv8tion.jda.api.interactions.components.text.TextInput;
 import net.dv8tion.jda.api.interactions.components.text.TextInputStyle;
-import org.example.TicketManager;
 
 import java.awt.*;
-import java.util.EnumSet;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
 public class TicketSystem extends ListenerAdapter {
 
-    private final TicketManager ticketManager = new TicketManager();
+    private final Map<String, String> activeTickets = new HashMap<>();
     private final Map<String, Boolean> ticketClaims = new HashMap<>();
 
     @Override
     public void onSlashCommandInteraction(SlashCommandInteractionEvent event) {
         if (event.getName().equals("setup-ticket")) {
-            if (event.getMember().hasPermission(Permission.ADMINISTRATOR)) {
-
-                event.reply("erfolgreich").setEphemeral(true).queue();
-
-                EmbedBuilder e = new EmbedBuilder()
-                        .setColor(Color.red)
-                        .setDescription("## \uD83D\uDE91 × TICKET-SUPPORT\n" +
-                                "Hier kannst du das Team kontaktieren!\n" +
-                                "Falls du eine __Frage__ hast, oder __Hilfe__ brauchst oder auch einen __Anliegen__ hast dann kannst du hier ein Ticket öffnen. \n\n" +
-                                "**WICHTIG:** \n" +
-                                "- Das Ausnutzen vom Ticket-Support wird bestraft. \n" +
-                                "- Das Beleidigen eines Teammitglieds im Ticket-Support wird mit einem Timeout oder mit einem Warn bestraft! \n" +
-                                "- Es werden nur Links reingeschickt, wenn du aufgefordert wurdest!");
-
-                Button ticketcreate = Button.success("ticketcreateid", "Ticket-Erstellen");
-
-                event.getChannel().sendMessageEmbeds(e.build()).addActionRow(ticketcreate).queue();
-
-            } else {
-                event.reply("Du hast keine Berechtigung!").setEphemeral(true).queue();
+            if (!event.getMember().hasPermission(Permission.ADMINISTRATOR)) {
+                event.reply("❌ Du hast keine Berechtigung!").setEphemeral(true).queue();
+                return;
             }
+
+            event.reply("✅ Ticket-System erfolgreich eingerichtet!").setEphemeral(true).queue();
+
+            EmbedBuilder embed = new EmbedBuilder()
+                    .setColor(Color.red)
+                    .setDescription("## 🎫 × TICKET-SUPPORT\n" +
+                            "Hier kannst du das Team kontaktieren!\n" +
+                            "Falls du eine **Frage** hast oder **Hilfe** brauchst, kannst du hier ein Ticket öffnen.\n\n" +
+                            "**Regeln:** \n" +
+                            "❌ Missbrauch des Ticket-Systems wird bestraft.\n" +
+                            "❌ Beleidigungen gegen Teammitglieder sind verboten.\n" +
+                            "❌ Links nur senden, wenn du dazu aufgefordert wirst.");
+
+            Button createTicket = Button.success("ticketcreateid", "🎟 Ticket-Erstellen");
+
+            event.getChannel().sendMessageEmbeds(embed.build()).addActionRow(createTicket).queue();
         }
     }
 
     @Override
     public void onButtonInteraction(ButtonInteractionEvent event) {
-        if (event.getButton().getId().equals("ticketcreateid")) {
+        String buttonId = event.getButton().getId();
+        Member member = event.getMember();
 
-            TextInput anliegeninput = TextInput.create("anliegeninputid", "Anliegen", TextInputStyle.PARAGRAPH).setPlaceholder("Hier Anliegen angeben!").build();
+        if (buttonId.equals("ticketcreateid")) {
+            if (activeTickets.containsKey(member.getId())) {
+                event.reply("❌ Du hast bereits ein offenes Ticket!").setEphemeral(true).queue();
+                return;
+            }
 
-            Modal ticketmodal = Modal.create("ticketmodalid", "Ticket-Support").addActionRow(anliegeninput).build();
+            TextInput issueInput = TextInput.create("issueinputid", "Anliegen", TextInputStyle.PARAGRAPH)
+                    .setPlaceholder("Beschreibe dein Anliegen...")
+                    .build();
 
-            event.replyModal(ticketmodal).queue();
+            Modal ticketModal = Modal.create("ticketmodalid", "🎫 Ticket-Support")
+                    .addActionRow(issueInput)
+                    .build();
+
+            event.replyModal(ticketModal).queue();
         }
 
-        if (event.getButton().getId().equals("closebuttonid")) {
-            Member m = event.getMember();
-            String anliegen = ticketManager.getTicketAnliegen(event.getChannel().getId());
-            ticketManager.closeTicket(event.getChannel().getId());
+        if (buttonId.equals("closebuttonid")) {
             event.getChannel().delete().queue();
+            activeTickets.values().remove(event.getChannel().getId());
         }
 
-        if (event.getButton().getId().equals("claimbuttonid")) {
-            Member m = event.getMember();
+        if (buttonId.equals("claimbuttonid")) {
             String channelId = event.getChannel().getId();
 
-            if (ticketClaims.containsKey(channelId) && ticketClaims.get(channelId)) {
-                EmbedBuilder alreadyClaimedEmbed = new EmbedBuilder()
-                        .setColor(Color.orange)
-                        .setDescription("Ticket wurde bereits übernommen!");
-
-                event.replyEmbeds(alreadyClaimedEmbed.build()).setEphemeral(true).queue();
-
+            if (ticketClaims.getOrDefault(channelId, false)) {
+                event.reply("❌ Dieses Ticket wurde bereits übernommen!").setEphemeral(true).queue();
             } else {
                 ticketClaims.put(channelId, true);
-
-                EmbedBuilder claimEmbed = new EmbedBuilder()
-                        .setColor(Color.green)
-                        .setDescription(m.getAsMention() + " hat dieses Ticket übernommen!");
-
-                event.getChannel().sendMessageEmbeds(claimEmbed.build()).queue();
+                event.getChannel().sendMessage("✅ " + member.getAsMention() + " hat dieses Ticket übernommen!").queue();
             }
         }
     }
 
     @Override
     public void onModalInteraction(ModalInteractionEvent event) {
-        if (event.getModalId().equals("ticketmodalid")) {
+        if (!event.getModalId().equals("ticketmodalid")) return;
 
-            Member m = event.getMember();
-            String a = event.getValue("anliegeninputid").getAsString();
+        Member member = event.getMember();
+        String issue = event.getValue("issueinputid").getAsString();
 
-            TextChannel textChannel = event.getGuild().getCategoryById("TICKET_CATEGORY_ID").createTextChannel("ticket-" + event.getMember().getEffectiveName()).complete();
-            textChannel.getManager().putPermissionOverride(m, EnumSet.of(Permission.VIEW_CHANNEL), null).complete();
-
-            EmbedBuilder asdd = new EmbedBuilder()
-                    .setColor(Color.red)
-                    .setDescription("Es wurde für dich ein Ticket erstellt! Dein Anliegen ist `" + a + "`!")
-                    .setTitle("Ticket erstellt!");
-
-            event.replyEmbeds(asdd.build()).setEphemeral(true).queue();
-
-            EmbedBuilder er = new EmbedBuilder()
-                    .setColor(Color.red)
-                    .setDescription("## 🎫 × TICKET-SUPPORT\n" +
-                            "Willkommen im **Ticket-Support**! \n" +
-                            "Das **Server-Team** wurde bereits über dein **Ticket kontaktiert**!\n" +
-                            "Habe einfach nur **Geduld**!\n" +
-                            "\n" +
-                            "**Anliegen:** " + a + " \n" +
-                            "**Ticket-Ersteller:** " + m.getAsMention());
-
-            Button closebutton = Button.danger("closebuttonid", "Ticket-Schließen");
-            Button claimbutton = Button.primary("claimbuttonid", "Ticket-Übernehmen");
-
-            textChannel.sendMessage(m.getAsMention()).addEmbeds(er.build()).addActionRow(closebutton, claimbutton).queue();
-
-            EmbedBuilder logt = new EmbedBuilder()
-                    .setColor(Color.red)
-                    .setTitle("Ticket-Log")
-                    .setDescription("Es wurde ein Ticket erstellt! \n" +
-                            "**Ticket-Ersteller:** " + event.getMember().getAsMention() + "\n" +
-                            "**Anliegen:** " + a);
-
-            event.getGuild().getTextChannelById("TICKET_LOG_CHANNEL_ID").sendMessageEmbeds(logt.build()).queue();
-
-            ticketManager.createTicket(m.getId(), textChannel.getId(), a);
+        if (activeTickets.containsKey(member.getId())) {
+            event.reply("❌ Du hast bereits ein offenes Ticket!").setEphemeral(true).queue();
+            return;
         }
+
+        Category ticketCategory = event.getGuild().getCategoryById("TICKET_CATEGORY_ID");
+        if (ticketCategory == null) {
+            event.reply("❌ Fehler: Ticket-Kategorie nicht gefunden!").setEphemeral(true).queue();
+            return;
+        }
+
+        TextChannel ticketChannel = ticketCategory.createTextChannel("ticket-" + member.getEffectiveName()).complete();
+        ticketChannel.getManager().putPermissionOverride(member, Collections.singleton(Permission.VIEW_CHANNEL), null).queue();
+
+        activeTickets.put(member.getId(), ticketChannel.getId());
+
+        EmbedBuilder userEmbed = new EmbedBuilder()
+                .setColor(Color.red)
+                .setTitle("✅ Ticket erstellt!")
+                .setDescription("Dein Ticket wurde erstellt! Dein Anliegen: `" + issue + "`");
+
+        event.replyEmbeds(userEmbed.build()).setEphemeral(true).queue();
+
+        EmbedBuilder ticketEmbed = new EmbedBuilder()
+                .setColor(Color.red)
+                .setDescription("## 🎫 × TICKET-SUPPORT\n" +
+                        "Willkommen im **Ticket-Support**!\n" +
+                        "Das **Server-Team** wurde benachrichtigt. Bitte habe etwas Geduld.\n\n" +
+                        "**Anliegen:** " + issue + " \n" +
+                        "**Ersteller:** " + member.getAsMention());
+
+        Button closeButton = Button.danger("closebuttonid", "❌ Ticket-Schließen");
+        Button claimButton = Button.primary("claimbuttonid", "✅ Ticket-Übernehmen");
+
+        ticketChannel.sendMessage(member.getAsMention()).addEmbeds(ticketEmbed.build()).addActionRow(closeButton, claimButton).queue();
     }
 }
